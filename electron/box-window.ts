@@ -43,7 +43,6 @@ export function createBoxWindow(
   win.loadURL(`${baseUrl}${separator}box=${collectionId}&init=${dataJson}`)
 
   win.setSkipTaskbar(true)
-  win.webContents.openDevTools({ mode: 'detach' })
 
   return win
 }

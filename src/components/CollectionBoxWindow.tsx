@@ -58,6 +58,7 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
 
       let itemName = file.name
       let itemPath = filePath
+      let iconPath = filePath // path to extract icon from
       let itemType: 'file' | 'folder' | 'shortcut' = 'file'
 
       if (file.name.toLowerCase().endsWith('.lnk')) {
@@ -65,7 +66,10 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
         itemName = file.name.replace(/\.lnk$/i, '')
         if (window.electronAPI) {
           const resolved = await window.electronAPI.resolveShortcut(filePath)
-          if (resolved?.target) itemPath = resolved.target
+          if (resolved?.target) {
+            itemPath = resolved.target
+            iconPath = resolved.target // get icon from the target, not the .lnk
+          }
         }
       } else if (!file.name.includes('.')) {
         itemType = 'folder'
@@ -73,12 +77,8 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
 
       let icon: string | undefined
       if (window.electronAPI) {
-        const raw = await window.electronAPI.getFileIcon(filePath)
-        console.log('[drop] getFileIcon for', filePath, '→ got', raw ? raw.substring(0, 40) + '...' : 'NULL')
-        icon = raw ?? undefined
+        icon = (await window.electronAPI.getFileIcon(iconPath)) ?? undefined
       }
-
-      console.log('[drop] adding item:', itemName, 'type:', itemType, 'hasIcon:', !!icon)
       addItem(collectionId, { name: itemName, path: itemPath, type: itemType, icon })
     }
   }, [collectionId, addItem])

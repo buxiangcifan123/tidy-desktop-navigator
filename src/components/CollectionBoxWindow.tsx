@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Reorder } from 'framer-motion'
 import type { Collection, Item } from '../types'
 import useStore from '../store/useStore'
@@ -23,8 +23,6 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
   const [editName, setEditName] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
   const [items, setItems] = useState<Item[]>([])
-  const previewRef = useRef<HTMLDivElement>(null)
-  const [previewSize, setPreviewSize] = useState({ w: 220, h: 100 })
 
   useEffect(() => {
     load()
@@ -36,18 +34,6 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
       setEditName(collection.name)
     }
   }, [collection?.items, collection?.name])
-
-  // Track preview area size for responsive icon sizing
-  useEffect(() => {
-    const el = previewRef.current
-    if (!el) return
-    const ro = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect
-      setPreviewSize({ w: width, h: height })
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   const handleToggleExpand = useCallback(() => {
     const next = !expanded
@@ -203,12 +189,9 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
   const previewItems = collection.items.slice(0, maxIcons)
   const overflow = collection.items.length - maxIcons
 
-  // Compute responsive icon size based on container
-  const padding = 32 // px reserved for padding
-  const gaps = 2 * 8  // 2 gaps (3 cols → 2 gaps)
-  const iconW = Math.max(16, Math.floor((previewSize.w - padding - gaps) / 3))
-  const iconH = Math.max(16, Math.floor((previewSize.h - padding) / 2))
-  const iconSize = Math.min(iconW, iconH, 64) // cap at 64px
+  // Fixed icon sizes — simpler and more reliable than dynamic calculation
+  const iconSize = 32
+  const imgSize = 22
 
   return (
     <div
@@ -260,7 +243,6 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
 
         {/* Icon preview — no-drag so drop events work here */}
         <div
-          ref={previewRef}
           className="flex-1 flex items-center justify-center px-2 pb-2 cursor-pointer"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           onClick={handleToggleExpand}
@@ -272,29 +254,26 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
             <span className="text-white/30 text-[10px]">点击添加项目</span>
           ) : (
             <div className="relative w-full h-full flex items-center justify-center">
-              <div
-                className="grid grid-cols-3 grid-rows-2 gap-1 place-items-center"
-                style={{ gap: Math.max(2, iconSize * 0.15) }}
-              >
+              <div className="grid grid-cols-3 grid-rows-2 gap-1.5 place-items-center">
                 {previewItems.map((item) => (
                   <div
                     key={item.id}
                     className="rounded-md flex items-center justify-center overflow-hidden bg-white/5 border border-white/10"
-                    style={{
-                      width: iconSize,
-                      height: iconSize,
-                      borderRadius: Math.max(3, iconSize * 0.2),
-                    }}
+                    style={{ width: iconSize, height: iconSize }}
                   >
                     {item.icon ? (
-                      <img
-                        src={item.icon}
-                        alt={item.name}
-                        className="object-contain"
-                        style={{ width: iconSize * 0.65, height: iconSize * 0.65 }}
+                      <div
+                        style={{
+                          width: imgSize,
+                          height: imgSize,
+                          backgroundImage: `url(${item.icon})`,
+                          backgroundSize: 'contain',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'center',
+                        }}
                       />
                     ) : (
-                      <span style={{ fontSize: Math.max(6, iconSize * 0.35) }}>
+                      <span className="text-[10px]">
                         {item.type === 'folder' ? '📁' : '📄'}
                       </span>
                     )}
@@ -304,19 +283,12 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
                   <div
                     key={`empty-${i}`}
                     className="rounded-md border border-dashed border-white/10"
-                    style={{
-                      width: iconSize,
-                      height: iconSize,
-                      borderRadius: Math.max(3, iconSize * 0.2),
-                    }}
+                    style={{ width: iconSize, height: iconSize }}
                   />
                 ))}
               </div>
               {overflow > 0 && (
-                <span
-                  className="absolute bottom-0 right-2 text-white/30"
-                  style={{ fontSize: Math.max(6, iconSize * 0.3) }}
-                >
+                <span className="absolute bottom-0 right-2 text-white/30 text-[10px]">
                   +{overflow}
                 </span>
               )}
@@ -357,7 +329,15 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
                   <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group" onDoubleClick={() => handleOpenItem(item)}>
                     <div className="w-6 h-6 rounded-md bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                       {item.icon ? (
-                        <img src={item.icon} alt={item.name} className="w-4 h-4 object-contain" />
+                        <div
+                          className="w-4 h-4"
+                          style={{
+                            backgroundImage: `url(${item.icon})`,
+                            backgroundSize: 'contain',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'center',
+                          }}
+                        />
                       ) : (
                         <span className="text-[10px]">{item.type === 'folder' ? '📁' : '📄'}</span>
                       )}

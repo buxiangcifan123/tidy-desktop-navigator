@@ -10,19 +10,6 @@ function App() {
     load()
   }, [load])
 
-  // Debug: test IPC
-  useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI.ping().then((result: string) => {
-        console.log('[App] Ping result:', result)
-      }).catch((e: any) => {
-        console.error('[App] Ping failed:', e)
-      })
-    } else {
-      console.log('[App] electronAPI not available')
-    }
-  }, [])
-
   // Check if we're in a box window mode (?box=<collectionId>)
   const params = new URLSearchParams(window.location.search)
   const boxId = params.get('box')

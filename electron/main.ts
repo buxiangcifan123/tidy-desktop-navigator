@@ -11,7 +11,7 @@ import {
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { createBoxWindow, updateBoxPosition, resizeBoxWindow } from './box-window'
+import { createBoxWindow, updateBoxPosition, resizeBoxWindow, setPreloadPath } from './box-window'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -168,17 +168,13 @@ function addNewCollection() {
 
   const cols = loadCollections()
   const id = Math.random().toString(36).slice(2, 11)
-    // Known-good red 1x1 PNG data URL for testing
-  const testIcon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAFklEQVQ4y2P4z8BQz0BKYGKgohEAAP/3Af8AAC38SURBVHjaY/z//z8DPQATFQ0OAAAAAElFTkSuQmCC'
+    // 16x16 solid blue PNG (verified valid)
   const newCol = {
     id,
     name: '新收纳框',
     x: 500 + cols.length * 30,
     y: 300 + cols.length * 30,
-    items: [
-      { id: 'test1', name: '测试应用', path: 'C:\\Windows\\System32\\notepad.exe', type: 'file', icon: testIcon },
-      { id: 'test2', name: '测试文件夹', path: 'C:\\Windows', type: 'folder', icon: testIcon },
-    ],
+    items: [],
   }
   cols.push(newCol)
   saveCollections(cols)
@@ -238,17 +234,10 @@ async function scanAndImport() {
 // ── IPC Handlers ──────────────────────────────────────────
 
 ipcMain.handle('load-data', async () => {
-  const logFile = path.join(app.getPath('userData'), 'ipc-debug.log')
-  const cols = loadCollections()
-  fs.appendFileSync(logFile, `[${new Date().toISOString()}] load-data called, found ${cols.length} collections\n`)
-  return { collections: cols }
+  return { collections: loadCollections() }
 })
 
 ipcMain.handle('save-data', async (_event, data: any) => {
-  // Debug: also log to file
-  const logFile = path.join(app.getPath('userData'), 'ipc-debug.log')
-  fs.appendFileSync(logFile, `[${new Date().toISOString()}] save-data called, collections: ${data.collections?.length || 0}\n`)
-
   // Merge with existing data: update matching collections, add new ones
   const existing = loadCollections()
   const incomingMap = new Map(data.collections.map((c: any) => [c.id, c]))
@@ -270,15 +259,10 @@ ipcMain.handle('open-path', async (_event, filePath: string) => {
 })
 
 ipcMain.handle('get-file-icon', async (_event, filePath: string) => {
-  const logFile = path.join(app.getPath('userData'), 'icon-debug.log')
   try {
-    fs.appendFileSync(logFile, `[${new Date().toISOString()}] Request: ${filePath}\n`)
     const icon = await app.getFileIcon(filePath, { size: 'large' })
-    const png = icon.toPNG()
-    fs.appendFileSync(logFile, `[${new Date().toISOString()}] Success: ${png.length} bytes\n`)
-    return `data:image/png;base64,${png.toString('base64')}`
-  } catch (e: any) {
-    fs.appendFileSync(logFile, `[${new Date().toISOString()}] ERROR: ${e.message}\n`)
+    return `data:image/png;base64,${icon.toPNG().toString('base64')}`
+  } catch {
     return null
   }
 })
@@ -319,13 +303,6 @@ ipcMain.handle('show-open-dialog', async () => {
   return result.canceled ? null : result.filePaths
 })
 
-// Debug ping
-ipcMain.handle('ping', async () => {
-  const logFile = path.join(app.getPath('userData'), 'ping-debug.log')
-  fs.appendFileSync(logFile, `[${new Date().toISOString()}] PING received\n`)
-  return 'pong'
-})
-
 // Box window actions
 ipcMain.handle('close-box-window', (_event, collectionId: string) => {
   const win = boxWindows.get(collectionId)
@@ -355,6 +332,7 @@ ipcMain.handle('box-toggle-expand', (_event, collectionId: string, expanded: boo
 // ── App lifecycle ─────────────────────────────────────────
 
 app.whenReady().then(() => {
+  setPreloadPath(path.join(__dirname, 'preload.js'))
   createTray()
   // Restore saved collection boxes
   const cols = loadCollections()

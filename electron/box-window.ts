@@ -1,18 +1,20 @@
 import { BrowserWindow, screen } from 'electron'
 import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 
 const BOX_WIDTH = 220
 const BOX_HEIGHT = 160
 const EXPANDED_WIDTH = 360
 const EXPANDED_HEIGHT = 520
 
+let preloadPath: string = ''
+
+export function setPreloadPath(p: string) {
+  preloadPath = p
+}
+
 export function createBoxWindow(
   collectionId: string,
-  collectionData: any, // the full collection object
+  collectionData: any,
   x: number,
   y: number
 ): BrowserWindow {
@@ -27,9 +29,8 @@ export function createBoxWindow(
     skipTaskbar: true,
     resizable: true,
     hasShadow: false,
-    // Normal focus behavior — windows come forward only when clicked
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -42,7 +43,6 @@ export function createBoxWindow(
   win.loadURL(`${baseUrl}${separator}box=${collectionId}&init=${dataJson}`)
 
   win.setSkipTaskbar(true)
-  win.webContents.openDevTools({ mode: 'detach' })
 
   return win
 }

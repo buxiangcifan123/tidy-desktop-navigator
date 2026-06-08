@@ -271,7 +271,12 @@ ipcMain.handle('resolve-shortcut', async (_event, filePath: string) => {
   try {
     if (filePath.toLowerCase().endsWith('.lnk')) {
       const detail = shell.readShortcutLink(filePath)
-      return { target: detail.target, description: detail.description || '' }
+      return {
+        target: detail.target,
+        description: detail.description || '',
+        icon: detail.icon || '',
+        iconIndex: detail.iconIndex ?? 0,
+      }
     }
   } catch { /* ignore */ }
   return null

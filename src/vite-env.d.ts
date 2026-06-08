@@ -5,7 +5,7 @@ interface ElectronAPI {
   saveData: (data: any) => Promise<void>
   openPath: (filePath: string) => Promise<void>
   getFileIcon: (filePath: string) => Promise<string | null>
-  resolveShortcut: (filePath: string) => Promise<{ target: string; description?: string } | null>
+  resolveShortcut: (filePath: string) => Promise<{ target: string; description?: string; icon?: string; iconIndex?: number } | null>
   onVisibilityChange: (callback: (visible: boolean) => void) => void
   closeBoxWindow: (collectionId: string) => Promise<void>
   toggleExpand: (collectionId: string, expanded: boolean) => Promise<void>

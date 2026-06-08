@@ -58,7 +58,7 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
 
       let itemName = file.name
       let itemPath = filePath
-      let iconPath = filePath // path to extract icon from
+      let iconSource = filePath // best path to extract icon from
       let itemType: 'file' | 'folder' | 'shortcut' = 'file'
 
       if (file.name.toLowerCase().endsWith('.lnk')) {
@@ -66,9 +66,10 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
         itemName = file.name.replace(/\.lnk$/i, '')
         if (window.electronAPI) {
           const resolved = await window.electronAPI.resolveShortcut(filePath)
-          if (resolved?.target) {
-            itemPath = resolved.target
-            iconPath = resolved.target // get icon from the target, not the .lnk
+          if (resolved) {
+            if (resolved.target) itemPath = resolved.target
+            // Shortcut's embedded icon path (e.g. Steam game icon cache)
+            if (resolved.icon) iconSource = resolved.icon
           }
         }
       } else if (!file.name.includes('.')) {
@@ -77,7 +78,11 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
 
       let icon: string | undefined
       if (window.electronAPI) {
-        icon = (await window.electronAPI.getFileIcon(iconPath)) ?? undefined
+        icon = (await window.electronAPI.getFileIcon(iconSource)) ?? undefined
+        // Fallback: try original .lnk if embedded icon didn't work
+        if (!icon && iconSource !== filePath) {
+          icon = (await window.electronAPI.getFileIcon(filePath)) ?? undefined
+        }
       }
       addItem(collectionId, { name: itemName, path: itemPath, type: itemType, icon })
     }

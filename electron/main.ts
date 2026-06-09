@@ -17,6 +17,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 let tray: Tray | null = null
+let updateTrayMenu: (() => void) | null = null
 
 // Map of collectionId -> BrowserWindow
 const boxWindows = new Map<string, BrowserWindow>()
@@ -188,6 +189,7 @@ function createTray() {
     tray?.setContextMenu(contextMenu)
   }
 
+  updateTrayMenu = updateMenu
   updateMenu()
   tray.on('right-click', updateMenu)
 
@@ -224,6 +226,7 @@ function addNewCollection() {
   cols.push(newCol)
   saveCollections(cols)
   syncBoxWindows(cols)
+  updateTrayMenu?.()
 }
 
 async function scanAndImport() {
@@ -273,6 +276,7 @@ async function scanAndImport() {
     })
     saveCollections(cols)
     syncBoxWindows(cols)
+    updateTrayMenu?.()
   }
 }
 

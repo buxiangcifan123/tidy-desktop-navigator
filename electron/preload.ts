@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Box window operations
   closeBoxWindow: (collectionId) => ipcRenderer.invoke('close-box-window', collectionId),
+  hideBoxWindow: (collectionId) => ipcRenderer.invoke('hide-box-window', collectionId),
+  showBoxWindow: (collectionId) => ipcRenderer.invoke('show-box-window', collectionId),
   toggleExpand: (collectionId, expanded) => ipcRenderer.invoke('box-toggle-expand', collectionId, expanded),
 
   // Dialog

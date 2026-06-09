@@ -43,8 +43,9 @@ export function createBoxWindow(
 
   const baseUrl = process.env.VITE_DEV_SERVER_URL || `file://${path.join(__dirname, '../dist/index.html')}`
   const separator = baseUrl.includes('?') ? '&' : '?'
-  // Pass collection data via URL to avoid any timing issues
-  const dataJson = encodeURIComponent(JSON.stringify(collectionData))
+  // Pass only lightweight metadata via URL (items come from IPC load-data)
+  const meta = { id: collectionData.id, name: collectionData.name }
+  const dataJson = encodeURIComponent(JSON.stringify(meta))
   win.loadURL(`${baseUrl}${separator}box=${collectionId}&init=${dataJson}`)
 
   win.setSkipTaskbar(true)

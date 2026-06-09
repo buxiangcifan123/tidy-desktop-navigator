@@ -94,9 +94,9 @@ function syncBoxWindows(collections: any[]) {
 
       win.on('closed', () => {
         boxWindows.delete(col.id)
-        // Also remove from disk so it doesn't come back
-        const cols = loadCollections().filter((c: any) => c.id !== col.id)
-        saveCollections(cols)
+        // Don't delete from disk on window close — the user may have
+        // accidentally closed it or the window may have been destroyed
+        // by external factors (fullscreen games, display changes, etc.)
       })
     }
   }
@@ -130,10 +130,48 @@ function createTray() {
         },
       },
       { type: 'separator' },
-      ...cols.map((col: any) => ({
-        label: `📁 ${col.name} (${col.items.length}项)`,
-        enabled: false,
-      })),
+      ...cols.map((col: any) => {
+        const win = boxWindows.get(col.id)
+        const isVisible = win && !win.isDestroyed() && win.isVisible()
+        return {
+          label: `${isVisible ? '👁' : '📦'} ${col.name} (${col.items.length}项)`,
+          submenu: [
+            {
+              label: isVisible ? '聚焦窗口' : '显示窗口',
+              click: () => {
+                if (win && !win.isDestroyed()) {
+                  if (win.isVisible()) {
+                    win.focus()
+                  } else {
+                    win.show()
+                    win.focus()
+                  }
+                } else {
+                  const allCols = loadCollections()
+                  const found = allCols.find((c: any) => c.id === col.id)
+                  if (found) {
+                    const newWin = createBoxWindow(found.id, found, found.x, found.y)
+                    boxWindows.set(found.id, newWin)
+                  }
+                }
+              },
+            },
+            { type: 'separator' },
+            {
+              label: '🗑 删除收纳框',
+              click: () => {
+                boxWindows.delete(col.id)
+                if (win && !win.isDestroyed()) {
+                  win.close()
+                }
+                const filtered = loadCollections().filter((c: any) => c.id !== col.id)
+                saveCollections(filtered)
+                updateMenu()
+              },
+            },
+          ],
+        }
+      }),
       { type: 'separator' },
       {
         label: `开机自启: ${app.getLoginItemSettings().openAtLogin ? '✅ 已开启' : '☐ 已关闭'}`,
@@ -362,12 +400,38 @@ ipcMain.handle('show-open-dialog', async () => {
 })
 
 // Box window actions
+ipcMain.handle('hide-box-window', (_event, collectionId: string) => {
+  const win = boxWindows.get(collectionId)
+  if (win && !win.isDestroyed()) {
+    win.hide()
+  }
+})
+
+ipcMain.handle('show-box-window', (_event, collectionId: string) => {
+  const win = boxWindows.get(collectionId)
+  if (win && !win.isDestroyed()) {
+    win.show()
+    win.focus()
+  } else {
+    // Window was destroyed — recreate from disk data
+    const cols = loadCollections()
+    const col = cols.find((c: any) => c.id === collectionId)
+    if (col) {
+      const newWin = createBoxWindow(collectionId, col, col.x, col.y)
+      boxWindows.set(collectionId, newWin)
+    }
+  }
+})
+
 ipcMain.handle('close-box-window', (_event, collectionId: string) => {
   const win = boxWindows.get(collectionId)
   if (win && !win.isDestroyed()) {
     win.close()
     boxWindows.delete(collectionId)
   }
+  // Permanently delete from disk
+  const cols = loadCollections().filter((c: any) => c.id !== collectionId)
+  saveCollections(cols)
 })
 
 ipcMain.handle('box-drag-end', (_event, collectionId: string, x: number, y: number) => {
@@ -397,10 +461,11 @@ app.whenReady().then(() => {
   })
 
   setPreloadPath(path.join(__dirname, 'preload.js'))
-  createTray()
-  // Restore saved collection boxes
+
+  // Must sync boxes BEFORE creating tray so the menu sees existing windows
   const cols = loadCollections()
   syncBoxWindows(cols)
+  createTray()
 })
 
 app.on('window-all-closed', () => {

@@ -8,6 +8,8 @@ interface ElectronAPI {
   resolveShortcut: (filePath: string) => Promise<{ target: string; description?: string; icon?: string; iconIndex?: number } | null>
   onVisibilityChange: (callback: (visible: boolean) => void) => void
   closeBoxWindow: (collectionId: string) => Promise<void>
+  hideBoxWindow: (collectionId: string) => Promise<void>
+  showBoxWindow: (collectionId: string) => Promise<void>
   toggleExpand: (collectionId: string, expanded: boolean) => Promise<void>
   scanDesktop: () => Promise<Array<{ name: string; path: string }>>
   showOpenDialog: (options: any) => Promise<string[] | null>

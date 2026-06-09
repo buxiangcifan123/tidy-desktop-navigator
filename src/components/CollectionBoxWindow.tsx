@@ -256,10 +256,11 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                // Just close the window — main process handles data cleanup
-                window.close()
+                // Hide to tray instead of closing — preserves data
+                window.electronAPI?.hideBoxWindow(collectionId)
               }}
               className="w-4 h-4 rounded-full bg-white/10 hover:bg-red-400/60 text-white/50 hover:text-white text-[8px] transition-colors"
+              title="隐藏到托盘"
             >✕</button>
           </div>
         </div>

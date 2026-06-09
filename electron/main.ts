@@ -275,15 +275,23 @@ ipcMain.handle('open-path', async (_event, filePath: string) => {
 ipcMain.handle('get-file-icon', async (_event, filePath: string) => {
   try {
     const lower = filePath.toLowerCase()
-    // For image/icon files, read the actual image data directly.
-    // app.getFileIcon() returns the system file-type icon, not the image content.
     if (lower.endsWith('.ico') || lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.bmp')) {
       const img = nativeImage.createFromPath(filePath)
       if (!img.isEmpty()) {
         return `data:image/png;base64,${img.toPNG().toString('base64')}`
       }
     }
-    const icon = await app.getFileIcon(filePath, { size: 'large' })
+    // For .lnk shortcuts, resolve target and get icon from the actual .exe
+    let iconPath = filePath
+    if (lower.endsWith('.lnk')) {
+      try {
+        const detail = shell.readShortcutLink(filePath)
+        if (detail.target && fs.existsSync(detail.target)) {
+          iconPath = detail.target
+        }
+      } catch { /* use filePath */ }
+    }
+    const icon = await app.getFileIcon(iconPath, { size: 'large' })
     return `data:image/png;base64,${icon.toPNG().toString('base64')}`
   } catch {
     return null

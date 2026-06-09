@@ -84,7 +84,7 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
           icon = (await window.electronAPI.getFileIcon(filePath)) ?? undefined
         }
       }
-      addItem(collectionId, { name: itemName, path: itemPath, type: itemType, icon })
+            addItem(collectionId, { name: itemName, path: itemPath, type: itemType, icon })
     }
   }, [collectionId, addItem])
 

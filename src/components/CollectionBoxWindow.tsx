@@ -76,7 +76,7 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
         itemType = 'folder'
       }
 
-      let icon: string | undefined
+            let icon: string | undefined
       if (window.electronAPI) {
         icon = (await window.electronAPI.getFileIcon(iconSource)) ?? undefined
         // Fallback: try original .lnk if embedded icon didn't work
@@ -139,12 +139,30 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
       const name = parts[parts.length - 1] || p
       const isFolder = !name.includes('.')
       const isShortcut = name.toLowerCase().endsWith('.lnk') || name.toLowerCase().endsWith('.url')
+      let itemPath = p
+      let iconSource = p
+      let itemType: 'file' | 'folder' | 'shortcut' = 'file'
+
+      if (isShortcut) {
+        itemType = 'shortcut'
+        const resolved = await window.electronAPI.resolveShortcut(p)
+        if (resolved) {
+          if (resolved.target) itemPath = resolved.target
+          if (resolved.icon) iconSource = resolved.icon
+        }
+      } else if (isFolder) {
+        itemType = 'folder'
+      }
+
       let icon: string | undefined
-      try { icon = (await window.electronAPI.getFileIcon(p)) ?? undefined } catch { /* */ }
+      try { icon = (await window.electronAPI.getFileIcon(iconSource)) ?? undefined } catch { /* */ }
+      if (!icon && iconSource !== p) {
+        try { icon = (await window.electronAPI.getFileIcon(p)) ?? undefined } catch { /* */ }
+      }
       addItem(collectionId, {
         name: isShortcut ? name.replace(/\.(lnk|url)$/i, '') : name,
-        path: p,
-        type: isFolder ? 'folder' : isShortcut ? 'shortcut' : 'file',
+        path: itemPath,
+        type: itemType,
         icon,
       })
     }

@@ -245,10 +245,17 @@ ipcMain.handle('load-data', async () => {
 })
 
 ipcMain.handle('save-data', async (_event, data: any) => {
-  // Merge with existing data: update matching collections, add new ones
+  // Merge: update collection items from renderer, but KEEP positions from disk
+  // (positions are tracked by main process via 'moved' event — the renderer's
+  // x/y may be stale and would cause the window to snap back on every save)
   const existing = loadCollections()
   const incomingMap = new Map(data.collections.map((c: any) => [c.id, c]))
-  const merged = existing.map((c: any) => incomingMap.get(c.id) || c)
+  const merged = existing.map((c: any) => {
+    const incoming = incomingMap.get(c.id)
+    if (!incoming) return c
+    // Preserve position tracked by main process
+    return { ...incoming, x: c.x, y: c.y }
+  })
   // Add collections not in existing
   for (const col of data.collections) {
     if (!existing.find((c: any) => c.id === col.id)) {
@@ -296,15 +303,23 @@ ipcMain.handle('resolve-shortcut', async (_event, filePath: string) => {
       }
     }
     if (lower.endsWith('.url')) {
-      // Parse .url (Internet Shortcut) file — Steam games use this format
-      const content = fs.readFileSync(filePath, 'utf-8')
+      // Parse .url (Internet Shortcut) file — Steam/TapTap games use this format.
+      // Steam .url files are UTF-8, TapTap .url files are UTF-16 LE (BOM 0xFF 0xFE).
+      const raw = fs.readFileSync(filePath)
+      let content: string
+      if (raw[0] === 0xff && raw[1] === 0xfe) {
+        content = raw.toString('utf16le')
+      } else {
+        content = raw.toString('utf-8')
+      }
       const urlMatch = content.match(/^URL=(.+)$/m)
       const iconFileMatch = content.match(/^IconFile=(.+)$/m)
       const iconIndexMatch = content.match(/^IconIndex=(\d+)$/m)
+      const iconPath = iconFileMatch ? iconFileMatch[1].trim() : ''
       return {
         target: urlMatch ? urlMatch[1].trim() : '',
         description: '',
-        icon: iconFileMatch ? iconFileMatch[1].trim() : '',
+        icon: iconPath,
         iconIndex: iconIndexMatch ? parseInt(iconIndexMatch[1], 10) : 0,
       }
     }

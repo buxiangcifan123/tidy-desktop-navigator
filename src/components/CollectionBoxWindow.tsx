@@ -61,14 +61,14 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
       let iconSource = filePath // best path to extract icon from
       let itemType: 'file' | 'folder' | 'shortcut' = 'file'
 
-      if (file.name.toLowerCase().endsWith('.lnk')) {
+      if (file.name.toLowerCase().endsWith('.lnk') || file.name.toLowerCase().endsWith('.url')) {
         itemType = 'shortcut'
-        itemName = file.name.replace(/\.lnk$/i, '')
+        itemName = file.name.replace(/\.(lnk|url)$/i, '')
         if (window.electronAPI) {
           const resolved = await window.electronAPI.resolveShortcut(filePath)
           if (resolved) {
             if (resolved.target) itemPath = resolved.target
-            // Shortcut's embedded icon path (e.g. Steam game icon cache)
+            // Shortcut's embedded icon path (e.g. Steam game .ico)
             if (resolved.icon) iconSource = resolved.icon
           }
         }
@@ -138,11 +138,11 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
       const parts = p.replace(/\\/g, '/').split('/')
       const name = parts[parts.length - 1] || p
       const isFolder = !name.includes('.')
-      const isShortcut = name.toLowerCase().endsWith('.lnk')
+      const isShortcut = name.toLowerCase().endsWith('.lnk') || name.toLowerCase().endsWith('.url')
       let icon: string | undefined
       try { icon = (await window.electronAPI.getFileIcon(p)) ?? undefined } catch { /* */ }
       addItem(collectionId, {
-        name: isShortcut ? name.replace(/\.lnk$/i, '') : name,
+        name: isShortcut ? name.replace(/\.(lnk|url)$/i, '') : name,
         path: p,
         type: isFolder ? 'folder' : isShortcut ? 'shortcut' : 'file',
         icon,

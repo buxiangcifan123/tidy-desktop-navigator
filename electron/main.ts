@@ -136,6 +136,13 @@ function createTray() {
       })),
       { type: 'separator' },
       {
+        label: `开机自启: ${app.getLoginItemSettings().openAtLogin ? '✅ 已开启' : '☐ 已关闭'}`,
+        click: () => {
+          const current = app.getLoginItemSettings().openAtLogin
+          app.setLoginItemSettings({ openAtLogin: !current })
+        },
+      },
+      {
         label: '退出 Tidy',
         click: () => app.quit(),
       },
@@ -260,6 +267,15 @@ ipcMain.handle('open-path', async (_event, filePath: string) => {
 
 ipcMain.handle('get-file-icon', async (_event, filePath: string) => {
   try {
+    const lower = filePath.toLowerCase()
+    // For image/icon files, read the actual image data directly.
+    // app.getFileIcon() returns the system file-type icon, not the image content.
+    if (lower.endsWith('.ico') || lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.bmp')) {
+      const img = nativeImage.createFromPath(filePath)
+      if (!img.isEmpty()) {
+        return `data:image/png;base64,${img.toPNG().toString('base64')}`
+      }
+    }
     const icon = await app.getFileIcon(filePath, { size: 'large' })
     return `data:image/png;base64,${icon.toPNG().toString('base64')}`
   } catch {
@@ -269,13 +285,27 @@ ipcMain.handle('get-file-icon', async (_event, filePath: string) => {
 
 ipcMain.handle('resolve-shortcut', async (_event, filePath: string) => {
   try {
-    if (filePath.toLowerCase().endsWith('.lnk')) {
+    const lower = filePath.toLowerCase()
+    if (lower.endsWith('.lnk')) {
       const detail = shell.readShortcutLink(filePath)
       return {
         target: detail.target,
         description: detail.description || '',
         icon: detail.icon || '',
         iconIndex: detail.iconIndex ?? 0,
+      }
+    }
+    if (lower.endsWith('.url')) {
+      // Parse .url (Internet Shortcut) file — Steam games use this format
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const urlMatch = content.match(/^URL=(.+)$/m)
+      const iconFileMatch = content.match(/^IconFile=(.+)$/m)
+      const iconIndexMatch = content.match(/^IconIndex=(\d+)$/m)
+      return {
+        target: urlMatch ? urlMatch[1].trim() : '',
+        description: '',
+        icon: iconFileMatch ? iconFileMatch[1].trim() : '',
+        iconIndex: iconIndexMatch ? parseInt(iconIndexMatch[1], 10) : 0,
       }
     }
   } catch { /* ignore */ }
@@ -337,6 +367,12 @@ ipcMain.handle('box-toggle-expand', (_event, collectionId: string, expanded: boo
 // ── App lifecycle ─────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Auto-start with Windows
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: app.getPath('exe'),
+  })
+
   setPreloadPath(path.join(__dirname, 'preload.js'))
   createTray()
   // Restore saved collection boxes

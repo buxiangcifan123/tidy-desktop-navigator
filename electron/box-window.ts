@@ -18,11 +18,16 @@ export function createBoxWindow(
   x: number,
   y: number
 ): BrowserWindow {
+  // Clamp position to screen bounds so windows never appear off-screen
+  const { workArea } = screen.getPrimaryDisplay()
+  const clampedX = Math.max(0, Math.min(x, workArea.width - BOX_WIDTH))
+  const clampedY = Math.max(0, Math.min(y, workArea.height - BOX_HEIGHT))
+
   const win = new BrowserWindow({
     width: BOX_WIDTH,
     height: BOX_HEIGHT,
-    x,
-    y,
+    x: clampedX,
+    y: clampedY,
     transparent: true,
     frame: false,
     alwaysOnTop: false,

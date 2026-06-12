@@ -24,6 +24,85 @@ const boxWindows = new Map<string, BrowserWindow>()
 
 const dataDir = path.join(app.getPath('userData'), 'data')
 const dataFile = path.join(dataDir, 'collections.json')
+const configFile = path.join(dataDir, 'config.json')
+
+// Startup folder .lnk — same approach as Ollama. More reliable than
+// registry Run key because shortcuts carry working directory + args.
+const startupDir = path.join(
+  app.getPath('appData'),
+  'Microsoft',
+  'Windows',
+  'Start Menu',
+  'Programs',
+  'Startup',
+)
+const startupFile = path.join(startupDir, 'tidy-start.vbs')
+
+// ── Config helpers ──────────────────────────────────────────
+
+interface AppConfig {
+  firstLaunchDone?: boolean
+  autoStartEnabled?: boolean
+}
+
+function loadConfig(): AppConfig {
+  ensureDataDir()
+  try {
+    if (fs.existsSync(configFile)) {
+      return JSON.parse(fs.readFileSync(configFile, 'utf-8'))
+    }
+  } catch { /* ignore */ }
+  return {}
+}
+
+function saveConfig(config: AppConfig) {
+  ensureDataDir()
+  fs.writeFileSync(configFile, JSON.stringify(config, null, 2), 'utf-8')
+}
+
+// Place a .vbs script in the Startup folder (like n8n does).
+// .vbs avoids .lnk path resolution issues during early boot.
+//
+// Written as UTF-16LE (the native Windows Unicode encoding) so Chinese
+// characters in paths are preserved correctly. VBScript reads UTF-16LE
+// files without issue.
+function setAutoStart(enabled: boolean) {
+  try {
+    if (enabled) {
+      const isDev = !app.isPackaged
+      const projectRoot = path.resolve(__dirname, '..')
+      const electronExe = isDev ? process.execPath : process.execPath
+
+      const vbsLines = [
+        `Set WshShell = CreateObject("WScript.Shell")`,
+        `Set env = WshShell.Environment("PROCESS")`,
+        `env("NODE_OPTIONS") = ""`,
+      ]
+      if (isDev) {
+        vbsLines.push(
+          `' Launch electron with project path (dev mode)`,
+          `WshShell.Run """${electronExe.replace(/\\/g, '\\\\')}"" ""${projectRoot.replace(/\\/g, '\\\\')}""", 0, False`,
+        )
+      } else {
+        vbsLines.push(
+          `WshShell.Run """${electronExe.replace(/\\/g, '\\\\')}""", 0, False`,
+        )
+      }
+      const vbsContent = '﻿' + vbsLines.join('\r\n') + '\r\n'
+
+      // UTF-16LE with BOM — VBScript's native Unicode format
+      fs.writeFileSync(startupFile, vbsContent, 'utf16le')
+      console.log('[auto-start] VBS created:', startupFile)
+    } else {
+      if (fs.existsSync(startupFile)) {
+        fs.unlinkSync(startupFile)
+        console.log('[auto-start] VBS removed:', startupFile)
+      }
+    }
+  } catch (err) {
+    console.error('[auto-start] Failed:', err)
+  }
+}
 
 // ── Data helpers ──────────────────────────────────────────
 
@@ -175,10 +254,16 @@ function createTray() {
       }),
       { type: 'separator' },
       {
-        label: `开机自启: ${app.getLoginItemSettings().openAtLogin ? '✅ 已开启' : '☐ 已关闭'}`,
+        label: `开机自启: ${fs.existsSync(startupFile) ? '✅ 已开启' : '☐ 已关闭'}`,
         click: () => {
-          const current = app.getLoginItemSettings().openAtLogin
-          app.setLoginItemSettings({ openAtLogin: !current })
+          const current = fs.existsSync(startupFile)
+          const next = !current
+          setAutoStart(next)
+          // Persist preference so it survives registry loss
+          const cfg = loadConfig()
+          cfg.autoStartEnabled = next
+          saveConfig(cfg)
+          updateMenu()
         },
       },
       {
@@ -459,10 +544,19 @@ ipcMain.handle('box-toggle-expand', (_event, collectionId: string, expanded: boo
 
 app.whenReady().then(() => {
   // Auto-start with Windows
-  app.setLoginItemSettings({
-    openAtLogin: true,
-    path: app.getPath('exe'),
-  })
+  // Persist user preference in config and enforce it on EVERY launch,
+  // not just the first one. Otherwise any external change (Windows update,
+  // antivirus, Task Manager disable, etc.) permanently kills auto-start.
+  const config = loadConfig()
+  if (!config.firstLaunchDone) {
+    // First launch: default auto-start to true
+    config.firstLaunchDone = true
+    config.autoStartEnabled = true
+    saveConfig(config)
+  }
+  // Always apply the saved preference — repairs registry if it was lost
+  const shouldAutoStart = config.autoStartEnabled !== false // default true
+  setAutoStart(shouldAutoStart)
 
   setPreloadPath(path.join(__dirname, 'preload.js'))
 

@@ -1,5 +1,9 @@
 import { BrowserWindow, screen } from 'electron'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const BOX_WIDTH = 220
 const BOX_HEIGHT = 160

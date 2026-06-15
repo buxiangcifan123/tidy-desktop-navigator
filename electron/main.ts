@@ -394,9 +394,25 @@ ipcMain.handle('save-data', async (_event, data: any) => {
 })
 
 ipcMain.handle('open-path', async (_event, filePath: string) => {
+  console.log('[open-path] Trying to open:', filePath)
   try {
-    await shell.openPath(filePath)
-  } catch { /* ignore */ }
+    const error = await shell.openPath(filePath)
+    if (error) {
+      console.error('[open-path] shell.openPath returned error:', error)
+      // Fallback: try shell.openExternal for protocol URLs (steam://, taptap://, etc.)
+      if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(filePath)) {
+        console.log('[open-path] Retrying with shell.openExternal...')
+        await shell.openExternal(filePath)
+        console.log('[open-path] shell.openExternal succeeded')
+      } else {
+        console.error('[open-path] Not a protocol URL, no fallback available')
+      }
+    } else {
+      console.log('[open-path] Successfully opened:', filePath)
+    }
+  } catch (err) {
+    console.error('[open-path] Exception thrown:', err)
+  }
 })
 
 ipcMain.handle('get-file-icon', async (_event, filePath: string) => {

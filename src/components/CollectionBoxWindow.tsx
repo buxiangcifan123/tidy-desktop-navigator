@@ -102,8 +102,13 @@ export default function CollectionBoxWindow({ collectionId }: Props) {
   }, [])
 
   const handleOpenItem = useCallback(async (item: Item) => {
+    console.log('[renderer] handleOpenItem called:', item.name, item.path)
     if (window.electronAPI) {
+      console.log('[renderer] calling openPath...')
       await window.electronAPI.openPath(item.path)
+      console.log('[renderer] openPath returned')
+    } else {
+      console.error('[renderer] window.electronAPI is undefined!')
     }
   }, [])
 

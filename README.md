@@ -52,3 +52,7 @@ assets/            # 应用图标
 ## 平台
 
 目前仅面向 **Windows**（依赖 `.lnk` / `.url` 解析与 Startup 自启机制）。
+
+## License
+
+[MIT](LICENSE)

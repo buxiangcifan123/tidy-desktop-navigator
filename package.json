@@ -5,9 +5,9 @@
   "description": "桌面可视化导航器 - 收纳你的桌面应用",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "dev": "cross-env NODE_OPTIONS= vite",
+    "build": "cross-env NODE_OPTIONS= tsc && cross-env NODE_OPTIONS= vite build",
+    "preview": "cross-env NODE_OPTIONS= vite preview"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -21,6 +21,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
+    "cross-env": "^10.1.0",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.0",
     "postcss": "^8.4.38",
